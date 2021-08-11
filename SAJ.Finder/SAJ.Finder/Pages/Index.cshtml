@@ -1,0 +1,23 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome To Finder</h1>
+</div>
+
+<div class="text-center mt-5">
+    <h3 class="display-6">Please select a role to proceed...</h3>
+</div>
+
+<div class="text-center mt-5">
+    <a class="btn btn-link shadow-none mr-3" asp-page="/employer">
+        <h5>Employer</h5>
+    </a>
+    OR
+    <a class="btn btn-link shadow-none ml-3" asp-page="/application">
+        <h5>Job Seeker</h5>
+    </a>
+</div>
