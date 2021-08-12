@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using SAJ.Data.DataContext;
 using SAJ.Data.EntityModels;
 using SAJ.Finder.Models;
 using System;
+using System.IO;
 using System.Json;
+using System.Text;
 using System.Text.Json;
 
 namespace SAJ.Finder.Pages
@@ -19,6 +22,9 @@ namespace SAJ.Finder.Pages
         [BindProperty(SupportsGet = true)]
         public string DocumentInJson { get; set; }
 
+        [BindProperty(SupportsGet = true)]
+        public IFormFile DocumentUpload { get; set; }
+
         public ApplicationModel(DemoContext context)
         {
             _context = context;
@@ -31,30 +37,21 @@ namespace SAJ.Finder.Pages
 
         public void OnPostSubmit()
         {
-            if (string.IsNullOrWhiteSpace(DocumentInJson))
-            {
-                ErrorMessage = "Document cannot be empty!";
-                return;
-            }
-
-            if (!IsValidJson(DocumentInJson))
-            {
-                ErrorMessage = "Document text is not valid JSON!";
-                return;
-            }
+            var json = ValidateAndReadJson();
 
             try
             {
-                var document = JsonSerializer.Deserialize<InputApplication>(DocumentInJson);
+                var document = JsonSerializer.Deserialize<InputApplication>(json);
                 if (document == null || string.IsNullOrWhiteSpace(document.Name) || document.Questions.Count <= 0)
                 {
                     ErrorMessage = "Document does not conform to expected format!";
                     return;
                 }
 
-                var newApplication = new Application { Document = DocumentInJson, Accepted = true };
+                var newApplication = new Application { Document = json, Accepted = true };
                 foreach (var question in document.Questions)
                 {
+                    // find question and accepted answer from data store
                     var found = _context.Questions.Find(question.Id);
                     if (found == null)
                     {
@@ -62,6 +59,7 @@ namespace SAJ.Finder.Pages
                         return;
                     }
 
+                    // if question is found and the answer does not match, reject the application and break the loop
                     if (!question.Answer.Trim().Equals(found.AcceptedAnswer.Trim(), StringComparison.OrdinalIgnoreCase))
                     {
                         newApplication.Accepted = false;
@@ -99,6 +97,42 @@ namespace SAJ.Finder.Pages
                 //Invalid json format
                 return false;
             }
+        }
+
+        private string ValidateAndReadJson()
+        {
+            var json = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(DocumentInJson) && DocumentUpload == null)
+            {
+                ErrorMessage = "Document cannot be empty!";
+                return json;
+            }
+
+            if (!string.IsNullOrWhiteSpace(DocumentInJson))
+            {
+                json = DocumentInJson;
+            }
+            else
+            {
+                var text = new StringBuilder();
+                using (var reader = new StreamReader(DocumentUpload.OpenReadStream()))
+                {
+                    while (reader.Peek() >= 0)
+                        text.AppendLine(reader.ReadLine());
+                }
+
+                json = text.ToString();
+            }
+            
+
+            if (!IsValidJson(json))
+            {
+                ErrorMessage = "Document text is not valid JSON!";
+                return string.Empty;
+            }
+
+            return json;
         }
 
         private void ResetPage()
