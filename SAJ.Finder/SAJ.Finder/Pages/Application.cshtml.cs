@@ -38,6 +38,8 @@ namespace SAJ.Finder.Pages
         public void OnPostSubmit()
         {
             var json = ValidateAndReadJson();
+            if (string.IsNullOrWhiteSpace(json))
+                return;
 
             try
             {
